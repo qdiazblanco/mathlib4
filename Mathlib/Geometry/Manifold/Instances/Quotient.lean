@@ -190,16 +190,16 @@ end
 
 -- the action is smooth (`G` is modelled on its own model with corners `J`)
 variable {E' : Type*} [NormedAddCommGroup E'] [NormedSpace 𝕜 E'] {H' : Type*}
-  [TopologicalSpace H'] {J : ModelWithCorners 𝕜 E' H'}
-  [TopologicalSpace G] [ChartedSpace H' G] [smul : ContMDiffSMul J I n G M]
+  [TopologicalSpace H'] (J : ModelWithCorners 𝕜 E' H')
+  [TopologicalSpace G] [ChartedSpace H' G]
 
-include smul in
 /-- The quotient of a manifold by a free, properly discontinuous group action acting by
 Cⁿ maps, where `G` is modelled on an arbitrary model with corners `J`, is a Cⁿ manifold.
 This general form cannot be an instance because the model `J` of `G` occurs only in the
 hypotheses, so instance search could never determine it; the instance `isManifold_quotient`
 below is the special case where `G` is modelled on the trivial model with corners on `PUnit`. -/
-theorem isManifold_quotient_of_contMDiffSMul : IsManifold I n (orbitRel.Quotient G M) where
+theorem isManifold_quotient_of_contMDiffSMul
+    [ContMDiffSMul J I n G M] : IsManifold I n (orbitRel.Quotient G M) where
   compatible := by
     rintro _ _ ⟨x, rfl⟩ ⟨y, rfl⟩
     rw [(πinv x).trans_symm_eq_symm_trans_symm, (chartAt H x.out).symm.trans_assoc,
@@ -221,14 +221,18 @@ theorem isManifold_quotient_of_contMDiffSMul : IsManifold I n (orbitRel.Quotient
     · rintro h' ⟨⟨hQ1, _, hQ4⟩, _, hcert⟩
       exact ⟨hQ1, mem_univ _, by simpa [← smul_eqOn x y g0 hcert] using hQ4⟩
 
+open scoped Manifold
+
+attribute [local instance] ChartedSpace.of_discreteTopology
 /-- The quotient of a manifold by a free, properly discontinuous action of a discrete group
 (modelled on the trivial model with corners on `PUnit`) is a manifold. This is the instance
 version of `isManifold_quotient_of_contMDiffSMul`, stated for the concrete model
 `modelWithCornersSelf 𝕜 PUnit` so that all its arguments are determined by its conclusion. -/
-instance isManifold_quotient [ChartedSpace PUnit G]
-    [ContMDiffSMul (modelWithCornersSelf 𝕜 PUnit) I n G M] :
+instance [DiscreteTopology G]
+    [ContMDiffSMul 𝓘(𝕜, PUnit) I n G M] :
     IsManifold I n (orbitRel.Quotient G M) :=
-  isManifold_quotient_of_contMDiffSMul (J := modelWithCornersSelf 𝕜 PUnit) I
+  isManifold_quotient_of_contMDiffSMul I 𝓘(𝕜, PUnit)
+
 
 include smul in
 /-- The projection map onto the quotient is smooth. -/

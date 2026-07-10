@@ -203,6 +203,10 @@ instance : IsManifold I n (orbitRel.Quotient G M) where
     · rintro h' ⟨⟨hQ1, _, hQ4⟩, _, hcert⟩
       exact ⟨hQ1, mem_univ _, by simpa [← smul_eqOn x y g0 hcert] using hQ4⟩
 
+/- The projection map onto the quotient is smooth.-/
+lemma contMDiff_quotientMk : ContMDiff I I n (Quotient.mk _ : M → orbitRel.Quotient G M) := by
+  sorry
+
 end MulAction
 
 end

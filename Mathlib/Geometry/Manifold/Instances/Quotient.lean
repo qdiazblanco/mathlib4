@@ -8,6 +8,7 @@ module
 
 public import Mathlib.Topology.Covering.Quotient
 public import Mathlib.Geometry.Manifold.Algebra.SMul
+public import Mathlib.Geometry.Manifold.ContMDiff.Atlas
 
 /-!
 # Quotients of manifolds
@@ -86,6 +87,15 @@ variable (x y : orbitRel.Quotient G M)
 /-- A choice of local section of the quotient map `M → orbitRel.Quotient G M` around `x`. -/
 abbrev πinv : OpenPartialHomeomorph (orbitRel.Quotient G M) M :=
   quotient_IsLocalHomeomorph.localInverseAt (Y := orbitRel.Quotient G M) x.out
+
+/-- The chart of the quotient at `x` is the local section `πinv x` followed by the chart of `M`
+at `x.out`. -/
+lemma chartAt_quotient_eq : chartAt H x = (πinv x).trans (chartAt H x.out) := rfl
+
+/-- Every point of the quotient lies in the source of the local section `πinv` based at itself. -/
+lemma mem_πinv_source : x ∈ (πinv x).source := by
+  have h := (quotient_IsLocalHomeomorph (G := G)).apply_self_mem_localInverseAt_source (x := x.out)
+  rwa [Quotient.out_eq] at h
 
 variable {x} in
 /-- If `g • m` is in the target of `πinv x`, then `πinv x ⟦m⟧` is just `g • m`. -/
@@ -178,10 +188,18 @@ lemma StructureGroupoid.restr_mem_of_eqOn {G : StructureGroupoid X}
 
 end
 
--- the action is smooth
-variable [TopologicalSpace G] [ChartedSpace H G] [ContMDiffSMul I I n G M]
+-- the action is smooth (`G` is modelled on its own model with corners `J`)
+variable {E' : Type*} [NormedAddCommGroup E'] [NormedSpace 𝕜 E'] {H' : Type*}
+  [TopologicalSpace H'] {J : ModelWithCorners 𝕜 E' H'}
+  [TopologicalSpace G] [ChartedSpace H' G] [smul : ContMDiffSMul J I n G M]
 
-instance : IsManifold I n (orbitRel.Quotient G M) where
+include smul in
+/-- The quotient of a manifold by a free, properly discontinuous group action acting by
+Cⁿ maps, where `G` is modelled on an arbitrary model with corners `J`, is a Cⁿ manifold.
+This general form cannot be an instance because the model `J` of `G` occurs only in the
+hypotheses, so instance search could never determine it; the instance `isManifold_quotient`
+below is the special case where `G` is modelled on the trivial model with corners on `PUnit`. -/
+theorem isManifold_quotient_of_contMDiffSMul : IsManifold I n (orbitRel.Quotient G M) where
   compatible := by
     rintro _ _ ⟨x, rfl⟩ ⟨y, rfl⟩
     rw [(πinv x).trans_symm_eq_symm_trans_symm, (chartAt H x.out).symm.trans_assoc,
@@ -197,15 +215,53 @@ instance : IsManifold I n (orbitRel.Quotient G M) where
     refine StructureGroupoid.restr_mem_of_eqOn (mem_contDiffGroupoid_of_contMDiff_chartAt I ?_ ?_)
       hto (hg0'.mono inter_subset_right) ?_
     · rw [Homeomorph.toOpenPartialHomeomorph_apply]
-      exact ContMDiffSMul.contMDiff_const_smul (I := I) g0
+      exact ContMDiffSMul.contMDiff_const_smul (I := J) g0
     · rw [Homeomorph.toOpenPartialHomeomorph_symm_apply]
-      exact ContMDiffSMul.contMDiff_const_smul (I := I) g0⁻¹
+      exact ContMDiffSMul.contMDiff_const_smul (I := J) g0⁻¹
     · rintro h' ⟨⟨hQ1, _, hQ4⟩, _, hcert⟩
       exact ⟨hQ1, mem_univ _, by simpa [← smul_eqOn x y g0 hcert] using hQ4⟩
 
-/- The projection map onto the quotient is smooth.-/
+/-- The quotient of a manifold by a free, properly discontinuous action of a discrete group
+(modelled on the trivial model with corners on `PUnit`) is a manifold. This is the instance
+version of `isManifold_quotient_of_contMDiffSMul`, stated for the concrete model
+`modelWithCornersSelf 𝕜 PUnit` so that all its arguments are determined by its conclusion. -/
+instance isManifold_quotient [ChartedSpace PUnit G]
+    [ContMDiffSMul (modelWithCornersSelf 𝕜 PUnit) I n G M] :
+    IsManifold I n (orbitRel.Quotient G M) :=
+  isManifold_quotient_of_contMDiffSMul (J := modelWithCornersSelf 𝕜 PUnit) I
+
+include smul in
+/-- The projection map onto the quotient is smooth. -/
 lemma contMDiff_quotientMk : ContMDiff I I n (Quotient.mk _ : M → orbitRel.Quotient G M) := by
-  sorry
+  haveI := isManifold_quotient_of_contMDiffSMul (J := J) (G := G) (M := M) (n := n) I
+  intro m
+  set x : orbitRel.Quotient G M := ⟦m⟧ with hx
+  -- pick `g` such that `g • m` lies in the target of the local section at `x`
+  obtain ⟨g, hg⟩ := exists_smul_mem_πinv_target m (mem_πinv_source x)
+  have hpi : πinv x x = g • m := by rw [hx]; exact πinv_mk_eq_smul hg
+  have hmem := mem_chart_source H x
+  rw [chartAt_quotient_eq, OpenPartialHomeomorph.trans_source, Set.mem_inter_iff,
+    Set.mem_preimage, hpi] at hmem
+  replace hmem := hmem.2
+  -- the projection factors as `(chartAt H x).symm ∘ chartAt H x.out ∘ (g • ·)` near `m`
+  have h1 : ContMDiffAt I I n (chartAt H x).symm (chartAt H x.out (g • m)) := by
+    have he : chartAt H x.out (g • m) = chartAt H x x := by
+      rw [chartAt_quotient_eq, OpenPartialHomeomorph.trans_apply, hpi]
+    exact he ▸ (contMDiffOn_chart_symm (n := n)).contMDiffAt ((chartAt H x).open_target.mem_nhds
+      ((chartAt H x).map_source (mem_chart_source H x)))
+  have h2 : ContMDiffAt I I n (chartAt H x.out) (g • m) :=
+    (contMDiffOn_chart (n := n)).contMDiffAt ((chartAt H x.out).open_source.mem_nhds hmem)
+  have h3 : ContMDiffAt I I n (g • ·) m :=
+    (ContMDiffSMul.contMDiff_const_smul (I := J) g).contMDiffAt
+  refine ((h1.comp (g • m) h2).comp m h3).congr_of_eventuallyEq ?_
+  have hW : IsOpen ((g • ·) ⁻¹' ((πinv x).target ∩ (chartAt H x.out).source)) :=
+    ((πinv x).open_target.inter (chartAt H x.out).open_source).preimage
+      (continuous_const_smul g)
+  filter_upwards [hW.mem_nhds ⟨hg, hmem⟩] with z hz
+  rw [Function.comp_apply, Function.comp_apply, chartAt_quotient_eq,
+    OpenPartialHomeomorph.coe_trans_symm, Function.comp_apply,
+    (chartAt H x.out).left_inv hz.2, quotient_IsLocalHomeomorph.localInverseAt_symm]
+  exact orbitRel.Quotient.quotient_smul_eq.symm
 
 end MulAction
 

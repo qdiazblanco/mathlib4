@@ -193,6 +193,7 @@ variable {E' : Type*} [NormedAddCommGroup E'] [NormedSpace 𝕜 E'] {H' : Type*}
   [TopologicalSpace H'] (J : ModelWithCorners 𝕜 E' H')
   [TopologicalSpace G] [ChartedSpace H' G]
 
+
 /-- The quotient of a manifold by a free, properly discontinuous group action acting by
 Cⁿ maps, where `G` is modelled on an arbitrary model with corners `J`, is a Cⁿ manifold.
 This general form cannot be an instance because the model `J` of `G` occurs only in the
@@ -234,9 +235,11 @@ instance [DiscreteTopology G]
   isManifold_quotient_of_contMDiffSMul I 𝓘(𝕜, PUnit)
 
 
-include smul in
+
+
 /-- The projection map onto the quotient is smooth. -/
-lemma contMDiff_quotientMk : ContMDiff I I n (Quotient.mk _ : M → orbitRel.Quotient G M) := by
+lemma contMDiff_quotientMk [ContMDiffSMul J I n G M] :
+  ContMDiff I I n (Quotient.mk _ : M → orbitRel.Quotient G M) := by
   haveI := isManifold_quotient_of_contMDiffSMul (J := J) (G := G) (M := M) (n := n) I
   intro m
   set x : orbitRel.Quotient G M := ⟦m⟧ with hx
